@@ -30,22 +30,32 @@
             display: flex; 
             flex-direction: column; 
             gap: 15px; 
+            scroll-behavior: smooth;
         }
         .message { 
             padding: 12px 18px; 
             border-radius: 12px; 
-            max-width: 75%; 
+            max-width: 80%; 
             line-height: 1.6;
+            word-wrap: break-word;
         }
         .user-message { 
             background-color: #21262d; 
             align-self: flex-start; 
             border: 1px solid #30363d;
+            color: white;
         }
         .bot-message { 
             background-color: #0b2942; 
             align-self: flex-end; 
             border: 1px solid #1f6feb;
+            color: #c9d1d9;
+        }
+        .error-message {
+            background-color: #3b1318;
+            align-self: flex-end;
+            border: 1px solid #ff7b72;
+            color: #ff7b72;
         }
         .input-area { 
             padding: 15px; 
@@ -62,6 +72,10 @@
             background-color: #0d1117; 
             color: white; 
             outline: none;
+            transition: 0.3s;
+        }
+        input[type="text"]:focus {
+            border-color: #58a6ff;
         }
         button { 
             padding: 12px 24px; 
@@ -71,9 +85,17 @@
             color: white; 
             font-weight: bold;
             cursor: pointer; 
+            transition: 0.3s;
         }
         button:hover { background-color: #2ea043; }
-        .loading { font-size: 13px; color: #58a6ff; align-self: flex-end; display: none; margin-top: -5px; }
+        .loading-container {
+            align-self: flex-end;
+            display: none;
+            color: #58a6ff;
+            font-size: 13px;
+            margin-top: -5px;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -81,31 +103,34 @@
     <div class="header">HOMOS AI</div>
 
     <div class="chat-container" id="chat-container">
-        <div class="message bot-message">أهلاً بك! أنا HOMOS AI، المساعد الذكي الخاص بك. هل تبحث عن شيء معين في المول الذكي اليوم؟ اسألني عن أي معلومات وسأجيبك.</div>
+        <div class="message bot-message">أهلاً بك! أنا HOMOS AI، المساعد الذكي. اسألني في أي شيء وسأجيبك فوراً!</div>
     </div>
     
-    <div class="loading" id="loading-indicator">جاري البحث عن الإجابة...</div>
+    <div class="loading-container" id="loading-indicator">جاري معالجة الطلب...</div>
 
     <div class="input-area">
-        <button onclick="sendMessage()">إرسال</button>
-        <input type="text" id="user-input" placeholder="اكتب سؤالك هنا..." onkeypress="handleKeyPress(event)">
+        <button onclick="sendMessage()" id="send-btn">إرسال</button>
+        <input type="text" id="user-input" placeholder="اكتب سؤالك لـ HOMOS AI هنا..." onkeypress="handleKeyPress(event)">
     </div>
 
     <script>
         const chatContainer = document.getElementById('chat-container');
         const userInput = document.getElementById('user-input');
         const loadingIndicator = document.getElementById('loading-indicator');
+        const sendBtn = document.getElementById('send-btn');
 
-        // الذاكرة المحلية للردود السريعة والمباشرة (تقدر تعدل فيها زي ما تحب)
-        const localBrain = {
-            "اهلا": "أهلاً بك! كيف يمكنني مساعدتك اليوم؟",
-            "أهلا": "أهلاً بك! كيف يمكنني مساعدتك اليوم؟",
-            "السلام عليكم": "وعليكم السلام ورحمة الله وبركاته. تفضل، أنا جاهز لخدمتك.",
-            "انت مين": "أنا HOMOS AI، مساعد افتراضي تم تصميمي لمساعدتك والإجابة على أسئلتك.",
-            "أنت مين": "أنا HOMOS AI، مساعد افتراضي تم تصميمي لمساعدتك والإجابة على أسئلتك.",
-            "اسمك ايه": "اسمي HOMOS AI.",
-            "ازيك": "أنا بخير، شكراً لسؤالك! كيف أستطيع مساعدتك في تصفح خدماتنا؟"
-        };
+        // دالة المترجم المخفي (Google Translate API المجانية)
+        async function translateText(text, fromLang, toLang) {
+            const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${fromLang}&tl=${toLang}&dt=t&q=${encodeURIComponent(text)}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            let translated = "";
+            // تجميع النص المترجم في حال كان طويلاً ومقسماً
+            data[0].forEach(item => {
+                if(item[0]) translated += item[0];
+            });
+            return translated;
+        }
 
         function handleKeyPress(event) {
             if (event.key === 'Enter') {
@@ -117,56 +142,52 @@
             let text = userInput.value.trim();
             if (!text) return;
 
+            // إظهار رسالة المستخدم
             appendMessage(text, 'user-message');
             userInput.value = '';
+            userInput.disabled = true;
+            sendBtn.disabled = true;
             loadingIndicator.style.display = 'block';
 
-            // البحث في الذاكرة المحلية أولاً
-            let foundLocal = false;
-            for (const [key, response] of Object.entries(localBrain)) {
-                if (text.includes(key)) {
-                    setTimeout(() => {
-                        appendMessage(response, 'bot-message');
-                        loadingIndicator.style.display = 'none';
-                    }, 600); // تأخير بسيط لجعله يبدو واقعياً
-                    foundLocal = true;
-                    break;
-                }
-            }
+            try {
+                // 1. ترجمة السؤال من العربي للإنجليزي (عشان الذكاء الاصطناعي يفهمه أسرع وبدون مشاكل شبكة)
+                loadingIndicator.textContent = "جاري الترجمة...";
+                const englishQuestion = await translateText(text, 'ar', 'en');
 
-            // إذا لم يكن السؤال محادثة عادية، نبحث في قاعدة البيانات (ويكيبيديا المفتوحة)
-            if (!foundLocal) {
-                try {
-                    // استدعاء ويكيبيديا بدون أي مفاتيح، origin=* تمنع أي أخطاء من المتصفح
-                    const apiUrl = `https://ar.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro=1&explaintext=1&redirects=1&origin=*&titles=${encodeURIComponent(text)}`;
-                    
-                    const response = await fetch(apiUrl);
-                    const data = await response.json();
-                    const pages = data.query.pages;
-                    const pageId = Object.keys(pages)[0];
+                // 2. إرسال السؤال الإنجليزي للذكاء الاصطناعي
+                loadingIndicator.textContent = "HOMOS AI يفكر...";
+                const systemPrompt = "You are a highly intelligent and helpful AI assistant named HOMOS AI. Reply in a concise and friendly manner.";
+                
+                // استخدام خدمة مجانية تماماً ولا تحتاج مفاتيح
+                const aiUrl = `https://text.pollinations.ai/${encodeURIComponent(englishQuestion)}?system=${encodeURIComponent(systemPrompt)}`;
+                const aiResponse = await fetch(aiUrl);
+                
+                if (!aiResponse.ok) throw new Error("AI Service down");
+                const englishAnswer = await aiResponse.text();
 
-                    if (pageId === "-1") {
-                        appendMessage("عذراً، لم أتمكن من العثور على معلومات محددة حول هذا الموضوع. هل يمكنك كتابة السؤال بشكل مختلف؟", 'bot-message');
-                    } else {
-                        // أخذ أول 300 حرف من الإجابة حتى لا تكون طويلة جداً
-                        let extract = pages[pageId].extract;
-                        if(extract.length > 350) {
-                            extract = extract.substring(0, 350) + "...";
-                        }
-                        appendMessage(extract, 'bot-message');
-                    }
-                } catch (error) {
-                    appendMessage("حدث خطأ في جلب البيانات، يرجى المحاولة مرة أخرى.", 'bot-message');
-                } finally {
-                    loadingIndicator.style.display = 'none';
-                }
+                // 3. ترجمة إجابة الذكاء الاصطناعي من الإنجليزي للعربي
+                loadingIndicator.textContent = "جاري صياغة الرد بالعربية...";
+                const arabicAnswer = await translateText(englishAnswer, 'en', 'ar');
+
+                // إظهار الرد النهائي بالعربي
+                appendMessage(arabicAnswer, 'bot-message');
+
+            } catch (error) {
+                console.error(error);
+                appendMessage("عذراً، حدث خطأ مؤقت. يرجى المحاولة مرة أخرى.", 'error-message');
+            } finally {
+                loadingIndicator.style.display = 'none';
+                userInput.disabled = false;
+                sendBtn.disabled = false;
+                userInput.focus();
             }
         }
 
         function appendMessage(text, className) {
             const msgDiv = document.createElement('div');
             msgDiv.className = `message ${className}`;
-            msgDiv.textContent = text;
+            // الحفاظ على الأسطر الجديدة في النص
+            msgDiv.innerHTML = text.replace(/\n/g, '<br>');
             chatContainer.appendChild(msgDiv);
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
