@@ -2,11 +2,17 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>HOMOS AI - متصل</title>
+    <title>HOMOS AI - آمن تماماً</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-950 text-white h-screen flex flex-col">
     
+    <!-- زر لتغيير المفتاح في أي وقت -->
+    <header class="p-3 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
+        <h1 class="font-bold text-cyan-400">HOMOS AI</h1>
+        <button onclick="resetKey()" class="text-xs bg-slate-800 px-3 py-1.5 rounded hover:bg-slate-700">تغيير مفتاح API</button>
+    </header>
+
     <!-- منطقة الشات -->
     <main id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-4"></main>
 
@@ -14,21 +20,41 @@
     <footer class="p-4 bg-slate-900 border-t border-slate-800">
         <div class="max-w-4xl mx-auto flex gap-2">
             <input type="text" id="user-input" class="flex-1 bg-slate-800 rounded-lg p-3 outline-none" placeholder="اكتب سؤالك...">
-            <button onclick="send()" class="bg-cyan-600 px-6 py-2 rounded-lg">إرسال</button>
+            <button onclick="send()" class="bg-cyan-600 px-6 py-2 rounded-lg font-bold">إرسال</button>
         </div>
     </footer>
 
     <script>
-        // ضع مفتاحك الجديد هنا بين علامتي التنصيص
-        const API_KEY = "YOUR_NEW_API_KEY_HERE"; 
+        // دالة لجلب أو طلب المفتاح بأمان
+        function getApiKey() {
+            let key = localStorage.getItem('homos_gemini_key');
+            if (!key) {
+                key = prompt("أدخل مفتاح Gemini API الخاص بك (سيتم حفظه في متصفحك فقط بأمان):");
+                if (key) {
+                    localStorage.setItem('homos_gemini_key', key.trim());
+                }
+            }
+            return key;
+        }
+
+        function resetKey() {
+            localStorage.removeItem('homos_gemini_key');
+            alert("تم حذف المفتاح المخزن. سيتم طلب مفتاح جديد عند الإرسال القادم.");
+        }
 
         async function send() {
+            const API_KEY = getApiKey();
+            if (!API_KEY) {
+                alert("يجب إدخال المفتاح لكي يعمل الشات!");
+                return;
+            }
+
             const input = document.getElementById('user-input');
             const msg = input.value;
             if(!msg) return;
             
             const container = document.getElementById('chat-container');
-            container.innerHTML += `<div class="p-3 bg-slate-700 rounded-lg self-end">${msg}</div>`;
+            container.innerHTML += `<div class="p-3 bg-slate-700 rounded-lg self-end max-w-[80%] ml-auto">${msg}</div>`;
             input.value = '';
 
             try {
@@ -39,11 +65,18 @@
                 });
 
                 const data = await response.json();
-                const reply = data.candidates[0].content.parts[0].text;
-                container.innerHTML += `<div class="p-3 bg-cyan-900 rounded-lg">${reply}</div>`;
+                
+                if (data.candidates && data.candidates[0].content.parts[0].text) {
+                    const reply = data.candidates[0].content.parts[0].text;
+                    container.innerHTML += `<div class="p-3 bg-cyan-900 rounded-lg max-w-[80%]">${reply}</div>`;
+                } else {
+                    container.innerHTML += `<div class="p-3 bg-red-900 rounded-lg">خطأ: تأكد من أن مفتاح الـ API صحيح.</div>`;
+                    localStorage.removeItem('homos_gemini_key'); // مسح المفتاح الخاطئ تلقائياً
+                }
             } catch (err) {
-                container.innerHTML += `<div class="p-3 bg-red-900 rounded-lg">خطأ: تأكد من مفتاح الـ API</div>`;
+                container.innerHTML += `<div class="p-3 bg-red-900 rounded-lg">فشل الاتصال بالخادم.</div>`;
             }
+            container.scrollTop = container.scrollHeight;
         }
     </script>
 </body>
