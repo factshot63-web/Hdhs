@@ -3,50 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HOMOS AI - سهل وسريع</title>
+    <title>HOMOS AI - الذكي</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-950 text-white h-screen flex flex-col">
+<body class="bg-slate-950 text-white h-screen flex flex-col font-sans">
     
-    <header class="p-4 bg-slate-900 border-b border-slate-800 font-bold text-cyan-400 text-lg">
-        HOMOS AI (نسخة بسيطة وشغالة)
+    <!-- رأس الصفحة -->
+    <header class="p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
+        <div class="font-bold text-cyan-400 text-xl tracking-wider">
+            HOMOS AI
+        </div>
+        <div class="text-xs text-slate-400">متصل وجاهز 🟢</div>
     </header>
 
-    <main id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-4 max-w-4xl mx-auto w-full">
-        <div class="p-3 bg-cyan-950 border border-cyan-800 rounded-lg max-w-[80%] text-white">
-            أهلاً بك! اكتب رسالتك وسأقوم بالرد عليك فوراً.
+    <!-- منطقة الشات -->
+    <main id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-4 max-w-4xl mx-auto w-full scroll-smooth">
+        <div class="p-4 bg-cyan-950/50 border border-cyan-800/50 rounded-2xl rounded-tr-none max-w-[85%] text-white shadow-lg">
+            أهلاً بك! أنا <strong>HOMOS AI</strong>، مساعدك الذكي. اسألني في أي شيء وسأجيبك فوراً!
         </div>
     </main>
 
-    <footer class="p-4 bg-slate-900 border-t border-slate-800">
-        <div class="max-w-4xl mx-auto flex gap-2">
-            <input type="text" id="user-input" class="flex-1 bg-slate-800 rounded-lg p-3 outline-none text-white" placeholder="اكتب رسالتك هنا...">
-            <button onclick="sendMsg()" class="bg-cyan-600 hover:bg-cyan-700 px-6 py-2 rounded-lg font-bold transition">إرسال</button>
+    <!-- شريط الإدخال -->
+    <footer class="p-4 bg-slate-900 border-t border-slate-800 shadow-[0_-4px_15px_rgba(0,0,0,0.2)]">
+        <div class="max-w-4xl mx-auto flex gap-3">
+            <input type="text" id="user-input" 
+                class="flex-1 bg-slate-800/80 border border-slate-700 focus:border-cyan-500 transition-colors rounded-xl p-3 outline-none text-white placeholder-slate-400" 
+                placeholder="اكتب رسالتك لـ HOMOS AI هنا..."
+                onkeypress="if(event.key === 'Enter') sendMsg()">
+            <button onclick="sendMsg()" 
+                class="bg-cyan-600 hover:bg-cyan-500 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg hover:shadow-cyan-500/25 flex items-center justify-center">
+                إرسال
+            </button>
         </div>
     </footer>
 
     <script>
+        // هذه هي التعليمات الخفية التي تجعله يعرف نفسه كـ HOMOS AI
+        const SYSTEM_PROMPT = "أنت مساعد ذكي وعبقري تتحدث اللغة العربية بطلاقة. اسمك هو 'HOMOS AI'. أنت متعاون جداً، ترد بإجابات دقيقة وواضحة، وتتسم بالاحترافية والود.";
+
         async function sendMsg() {
             const input = document.getElementById('user-input');
             const text = input.value.trim();
             if(!text) return;
 
             const container = document.getElementById('chat-container');
-            container.innerHTML += `<div class="p-3 bg-slate-700 rounded-lg max-w-[80%] ml-auto text-white">${text}</div>`;
+            
+            // 1. عرض رسالة المستخدم
+            container.innerHTML += `
+                <div class="p-4 bg-slate-800 rounded-2xl rounded-tl-none max-w-[85%] mr-auto text-white shadow-md border border-slate-700">
+                    ${text}
+                </div>`;
             input.value = '';
-            container.scrollTop = container.scrollHeight;
+            scrollToBottom();
+
+            // 2. عرض تأثير "جاري التفكير..."
+            const loadingId = 'loading-' + Date.now();
+            container.innerHTML += `
+                <div id="${loadingId}" class="p-4 bg-cyan-950/30 border border-cyan-900/50 rounded-2xl rounded-tr-none max-w-[85%] text-cyan-400 shadow-sm flex gap-2 items-center">
+                    <svg class="animate-spin h-5 w-5 text-cyan-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>HOMOS AI يفكر...</span>
+                </div>`;
+            scrollToBottom();
 
             try {
-                // استخدام خدمة بديلة مجانية وسريعة للاختبار
-                const res = await fetch(`https://kaas.onrender.com/chat?q=${encodeURIComponent(text)}`);
-                const data = await res.json();
+                // 3. الاتصال بالخدمة مع إرسال السؤال + التعليمات الخفية (System Prompt)
+                const url = `https://text.pollinations.ai/${encodeURIComponent(text)}?system=${encodeURIComponent(SYSTEM_PROMPT)}`;
+                const res = await fetch(url);
                 
-                const reply = data.reply || "عفواً، حدث خطأ بسيط.";
-                container.innerHTML += `<div class="p-3 bg-cyan-950 border border-cyan-800 rounded-lg max-w-[80%] text-white">${reply}</div>`;
+                if (!res.ok) throw new Error("Network response was not ok");
+                
+                const reply = await res.text(); // الخدمة ترجع النص مباشرة
+
+                // 4. حذف رسالة التحميل وعرض الرد النهائي
+                document.getElementById(loadingId).remove();
+                
+                // تحويل النص العادي إلى HTML بسيط إذا كان فيه أسطر جديدة
+                const formattedReply = reply.replace(/\n/g, '<br>');
+
+                container.innerHTML += `
+                    <div class="p-4 bg-cyan-950/50 border border-cyan-800/50 rounded-2xl rounded-tr-none max-w-[85%] text-white shadow-lg leading-relaxed">
+                        ${formattedReply}
+                    </div>`;
             } catch(e) {
-                // رد احتياطي محلي لضمان أن التطبيق لن يتوقف أبداً
-                container.innerHTML += `<div class="p-3 bg-cyan-950 border border-cyan-800 rounded-lg max-w-[80%] text-white">أهلاً بك! لقد استلمت رسالتك: "${text}" (هذا رد تجريبي لضمان عمل الصفحة بسلاسة).</div>`;
+                // في حالة فشل الاتصال
+                document.getElementById(loadingId).remove();
+                container.innerHTML += `
+                    <div class="p-4 bg-red-950/50 border border-red-800/50 rounded-2xl rounded-tr-none max-w-[85%] text-red-200 shadow-sm">
+                        عذراً، حدث خطأ في الاتصال بالإنترنت. يرجى المحاولة مرة أخرى.
+                    </div>`;
             }
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            const container = document.getElementById('chat-container');
             container.scrollTop = container.scrollHeight;
         }
     </script>
