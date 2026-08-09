@@ -3,104 +3,172 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HOMOS AI - الذكي</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>HOMOS AI - المساعد الذكي</title>
+    <style>
+        body { 
+            background-color: #0d1117; 
+            color: #c9d1d9; 
+            font-family: Arial, sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            margin: 0; 
+        }
+        .header {
+            text-align: center;
+            padding: 15px;
+            background-color: #161b22;
+            border-bottom: 1px solid #30363d;
+            color: #58a6ff;
+            font-weight: bold;
+            font-size: 20px;
+        }
+        .chat-container { 
+            flex-grow: 1; 
+            padding: 20px; 
+            overflow-y: auto; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px; 
+        }
+        .message { 
+            padding: 12px 18px; 
+            border-radius: 12px; 
+            max-width: 75%; 
+            line-height: 1.6;
+        }
+        .user-message { 
+            background-color: #21262d; 
+            align-self: flex-start; 
+            border: 1px solid #30363d;
+        }
+        .bot-message { 
+            background-color: #0b2942; 
+            align-self: flex-end; 
+            border: 1px solid #1f6feb;
+        }
+        .input-area { 
+            padding: 15px; 
+            background-color: #161b22; 
+            display: flex; 
+            gap: 10px; 
+            border-top: 1px solid #30363d;
+        }
+        input[type="text"] { 
+            flex-grow: 1; 
+            padding: 12px; 
+            border-radius: 8px; 
+            border: 1px solid #30363d; 
+            background-color: #0d1117; 
+            color: white; 
+            outline: none;
+        }
+        button { 
+            padding: 12px 24px; 
+            border-radius: 8px; 
+            border: none; 
+            background-color: #238636; 
+            color: white; 
+            font-weight: bold;
+            cursor: pointer; 
+        }
+        button:hover { background-color: #2ea043; }
+        .loading { font-size: 13px; color: #58a6ff; align-self: flex-end; display: none; margin-top: -5px; }
+    </style>
 </head>
-<body class="bg-slate-950 text-white h-screen flex flex-col font-sans">
+<body>
+
+    <div class="header">HOMOS AI</div>
+
+    <div class="chat-container" id="chat-container">
+        <div class="message bot-message">أهلاً بك! أنا HOMOS AI، المساعد الذكي الخاص بك. هل تبحث عن شيء معين في المول الذكي اليوم؟ اسألني عن أي معلومات وسأجيبك.</div>
+    </div>
     
-    <!-- رأس الصفحة -->
-    <header class="p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
-        <div class="font-bold text-cyan-400 text-xl tracking-wider">
-            HOMOS AI
-        </div>
-        <div class="text-xs text-slate-400">متصل وجاهز 🟢</div>
-    </header>
+    <div class="loading" id="loading-indicator">جاري البحث عن الإجابة...</div>
 
-    <!-- منطقة الشات -->
-    <main id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-4 max-w-4xl mx-auto w-full scroll-smooth">
-        <div class="p-4 bg-cyan-950/50 border border-cyan-800/50 rounded-2xl rounded-tr-none max-w-[85%] text-white shadow-lg">
-            أهلاً بك! أنا <strong>HOMOS AI</strong>، مساعدك الذكي. اسألني في أي شيء وسأجيبك فوراً!
-        </div>
-    </main>
-
-    <!-- شريط الإدخال -->
-    <footer class="p-4 bg-slate-900 border-t border-slate-800 shadow-[0_-4px_15px_rgba(0,0,0,0.2)]">
-        <div class="max-w-4xl mx-auto flex gap-3">
-            <input type="text" id="user-input" 
-                class="flex-1 bg-slate-800/80 border border-slate-700 focus:border-cyan-500 transition-colors rounded-xl p-3 outline-none text-white placeholder-slate-400" 
-                placeholder="اكتب رسالتك لـ HOMOS AI هنا..."
-                onkeypress="if(event.key === 'Enter') sendMsg()">
-            <button onclick="sendMsg()" 
-                class="bg-cyan-600 hover:bg-cyan-500 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg hover:shadow-cyan-500/25 flex items-center justify-center">
-                إرسال
-            </button>
-        </div>
-    </footer>
+    <div class="input-area">
+        <button onclick="sendMessage()">إرسال</button>
+        <input type="text" id="user-input" placeholder="اكتب سؤالك هنا..." onkeypress="handleKeyPress(event)">
+    </div>
 
     <script>
-        // هذه هي التعليمات الخفية التي تجعله يعرف نفسه كـ HOMOS AI
-        const SYSTEM_PROMPT = "أنت مساعد ذكي وعبقري تتحدث اللغة العربية بطلاقة. اسمك هو 'HOMOS AI'. أنت متعاون جداً، ترد بإجابات دقيقة وواضحة، وتتسم بالاحترافية والود.";
+        const chatContainer = document.getElementById('chat-container');
+        const userInput = document.getElementById('user-input');
+        const loadingIndicator = document.getElementById('loading-indicator');
 
-        async function sendMsg() {
-            const input = document.getElementById('user-input');
-            const text = input.value.trim();
-            if(!text) return;
+        // الذاكرة المحلية للردود السريعة والمباشرة (تقدر تعدل فيها زي ما تحب)
+        const localBrain = {
+            "اهلا": "أهلاً بك! كيف يمكنني مساعدتك اليوم؟",
+            "أهلا": "أهلاً بك! كيف يمكنني مساعدتك اليوم؟",
+            "السلام عليكم": "وعليكم السلام ورحمة الله وبركاته. تفضل، أنا جاهز لخدمتك.",
+            "انت مين": "أنا HOMOS AI، مساعد افتراضي تم تصميمي لمساعدتك والإجابة على أسئلتك.",
+            "أنت مين": "أنا HOMOS AI، مساعد افتراضي تم تصميمي لمساعدتك والإجابة على أسئلتك.",
+            "اسمك ايه": "اسمي HOMOS AI.",
+            "ازيك": "أنا بخير، شكراً لسؤالك! كيف أستطيع مساعدتك في تصفح خدماتنا؟"
+        };
 
-            const container = document.getElementById('chat-container');
-            
-            // 1. عرض رسالة المستخدم
-            container.innerHTML += `
-                <div class="p-4 bg-slate-800 rounded-2xl rounded-tl-none max-w-[85%] mr-auto text-white shadow-md border border-slate-700">
-                    ${text}
-                </div>`;
-            input.value = '';
-            scrollToBottom();
-
-            // 2. عرض تأثير "جاري التفكير..."
-            const loadingId = 'loading-' + Date.now();
-            container.innerHTML += `
-                <div id="${loadingId}" class="p-4 bg-cyan-950/30 border border-cyan-900/50 rounded-2xl rounded-tr-none max-w-[85%] text-cyan-400 shadow-sm flex gap-2 items-center">
-                    <svg class="animate-spin h-5 w-5 text-cyan-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span>HOMOS AI يفكر...</span>
-                </div>`;
-            scrollToBottom();
-
-            try {
-                // 3. الاتصال بالخدمة مع إرسال السؤال + التعليمات الخفية (System Prompt)
-                const url = `https://text.pollinations.ai/${encodeURIComponent(text)}?system=${encodeURIComponent(SYSTEM_PROMPT)}`;
-                const res = await fetch(url);
-                
-                if (!res.ok) throw new Error("Network response was not ok");
-                
-                const reply = await res.text(); // الخدمة ترجع النص مباشرة
-
-                // 4. حذف رسالة التحميل وعرض الرد النهائي
-                document.getElementById(loadingId).remove();
-                
-                // تحويل النص العادي إلى HTML بسيط إذا كان فيه أسطر جديدة
-                const formattedReply = reply.replace(/\n/g, '<br>');
-
-                container.innerHTML += `
-                    <div class="p-4 bg-cyan-950/50 border border-cyan-800/50 rounded-2xl rounded-tr-none max-w-[85%] text-white shadow-lg leading-relaxed">
-                        ${formattedReply}
-                    </div>`;
-            } catch(e) {
-                // في حالة فشل الاتصال
-                document.getElementById(loadingId).remove();
-                container.innerHTML += `
-                    <div class="p-4 bg-red-950/50 border border-red-800/50 rounded-2xl rounded-tr-none max-w-[85%] text-red-200 shadow-sm">
-                        عذراً، حدث خطأ في الاتصال بالإنترنت. يرجى المحاولة مرة أخرى.
-                    </div>`;
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
             }
-            scrollToBottom();
         }
 
-        function scrollToBottom() {
-            const container = document.getElementById('chat-container');
-            container.scrollTop = container.scrollHeight;
+        async function sendMessage() {
+            let text = userInput.value.trim();
+            if (!text) return;
+
+            appendMessage(text, 'user-message');
+            userInput.value = '';
+            loadingIndicator.style.display = 'block';
+
+            // البحث في الذاكرة المحلية أولاً
+            let foundLocal = false;
+            for (const [key, response] of Object.entries(localBrain)) {
+                if (text.includes(key)) {
+                    setTimeout(() => {
+                        appendMessage(response, 'bot-message');
+                        loadingIndicator.style.display = 'none';
+                    }, 600); // تأخير بسيط لجعله يبدو واقعياً
+                    foundLocal = true;
+                    break;
+                }
+            }
+
+            // إذا لم يكن السؤال محادثة عادية، نبحث في قاعدة البيانات (ويكيبيديا المفتوحة)
+            if (!foundLocal) {
+                try {
+                    // استدعاء ويكيبيديا بدون أي مفاتيح، origin=* تمنع أي أخطاء من المتصفح
+                    const apiUrl = `https://ar.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro=1&explaintext=1&redirects=1&origin=*&titles=${encodeURIComponent(text)}`;
+                    
+                    const response = await fetch(apiUrl);
+                    const data = await response.json();
+                    const pages = data.query.pages;
+                    const pageId = Object.keys(pages)[0];
+
+                    if (pageId === "-1") {
+                        appendMessage("عذراً، لم أتمكن من العثور على معلومات محددة حول هذا الموضوع. هل يمكنك كتابة السؤال بشكل مختلف؟", 'bot-message');
+                    } else {
+                        // أخذ أول 300 حرف من الإجابة حتى لا تكون طويلة جداً
+                        let extract = pages[pageId].extract;
+                        if(extract.length > 350) {
+                            extract = extract.substring(0, 350) + "...";
+                        }
+                        appendMessage(extract, 'bot-message');
+                    }
+                } catch (error) {
+                    appendMessage("حدث خطأ في جلب البيانات، يرجى المحاولة مرة أخرى.", 'bot-message');
+                } finally {
+                    loadingIndicator.style.display = 'none';
+                }
+            }
+        }
+
+        function appendMessage(text, className) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${className}`;
+            msgDiv.textContent = text;
+            chatContainer.appendChild(msgDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
         }
     </script>
 </body>
